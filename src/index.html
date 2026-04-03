@@ -1,0 +1,431 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Telegram App Loader v2</title>
+  <style>
+    :root{
+      --bg:#f4f7fb; --panel:#ffffff; --line:#d9e1ea; --text:#17212b; --muted:#5d6b7a;
+      --blue:#368adf; --blue2:#2d72b8; --ok:#0d7d3e; --okbg:#e9f8ef; --err:#a12626;
+      --errbg:#fdecec; --info:#445268; --infobg:#eef3f9;
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--text)}
+    .wrap{max-width:1180px;margin:0 auto;padding:24px}
+    .hero{background:linear-gradient(180deg,var(--blue),var(--blue2));color:#fff;border-radius:18px;padding:18px 20px;box-shadow:0 10px 30px rgba(0,0,0,.14);margin-bottom:18px}
+    .hero h1{margin:0 0 6px;font-size:24px}
+    .hero p{margin:0;opacity:.95;line-height:1.45}
+    .grid{display:grid;grid-template-columns:380px 1fr;gap:18px;align-items:start}
+    .card{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:0 8px 24px rgba(0,0,0,.06);overflow:hidden}
+    .card-head{padding:14px 18px;border-bottom:1px solid var(--line);font-weight:700;background:#fbfdff}
+    .card-body{padding:16px 18px 18px}
+    .status{padding:12px 14px;border-radius:12px;background:var(--infobg);color:var(--info);margin-bottom:14px;line-height:1.45;font-size:14px}
+    .status.ok{background:var(--okbg);color:var(--ok)}
+    .status.error{background:var(--errbg);color:var(--err)}
+    .row{margin-bottom:12px}
+    .row label{display:block;margin:0 0 6px;font-size:12px;color:#334255;font-weight:700}
+    .row input,.row select,.row textarea{width:100%;padding:11px 12px;border:1px solid #bec9d6;border-radius:12px;background:#fff;font:inherit;color:inherit}
+    .row textarea{min-height:92px;resize:vertical}
+    .cols-2,.cols-3{display:grid;gap:12px}
+    .cols-2{grid-template-columns:1fr 1fr}
+    .cols-3{grid-template-columns:1fr 1fr 1fr}
+    .btns{display:grid;gap:10px}
+    button{width:100%;border:none;border-radius:12px;padding:12px 14px;font:inherit;font-weight:700;cursor:pointer;background:#fff;color:#213044;border:1px solid #bcc8d5}
+    button.primary{background:var(--blue);color:#fff;border-color:var(--blue2)}
+    button.danger{color:#982323;border-color:#e4b5b5;background:#fff}
+    button:disabled{opacity:.55;cursor:not-allowed}
+    .meta{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+    .meta div{background:#fbfdff;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:13px;line-height:1.45}
+    .meta b{display:block;font-size:12px;color:#4f5d6d}
+    .log{border:1px solid var(--line);border-radius:14px;background:#0f1720;color:#dce7f3;padding:12px;min-height:220px;max-height:440px;overflow:auto;font-family:Consolas,Monaco,monospace;font-size:12px;line-height:1.55;white-space:pre-wrap}
+    .small{font-size:12px;color:var(--muted);line-height:1.5}
+    .hidden{display:none!important}
+    .pill{display:inline-block;padding:4px 8px;border-radius:999px;font-size:12px;background:#eef3f9;color:#405064;margin-right:6px;margin-bottom:6px}
+    @media (max-width:980px){
+      .grid{grid-template-columns:1fr}
+      .cols-2,.cols-3,.meta{grid-template-columns:1fr}
+      .wrap{padding:16px}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="hero">
+      <h1>Telegram App Loader v2</h1>
+      <p>Versão preparada para build automático no GitHub Pages. O app agora busca o bundle local do próprio site em <b>/telegram-client.bundle.js</b>, sem pedir URL ao usuário.</p>
+    </section>
+
+    <div class="grid">
+      <section class="card">
+        <div class="card-head">Controle</div>
+        <div class="card-body">
+          <div id="statusBox" class="status">
+            Informe App api_id, App api_hash e telefone. Depois siga o fluxo: enviar código → confirmar código → senha 2FA, se exigida.
+          </div>
+
+          <div class="meta">
+            <div><b>Chat alvo</b><span id="ctxTitle">-</span></div>
+            <div><b>Peer</b><span id="ctxPeer">-</span></div>
+            <div><b>Tipo</b><span id="ctxKind">-</span></div>
+            <div><b>Origem</b><span id="ctxSource">-</span></div>
+          </div>
+
+          <section id="screenCreds">
+            <div class="cols-2">
+              <div class="row">
+                <label for="apiId">App api_id</label>
+                <input id="apiId" inputmode="numeric">
+              </div>
+              <div class="row">
+                <label for="apiHash">App api_hash</label>
+                <input id="apiHash">
+              </div>
+            </div>
+
+            <div class="row">
+              <label for="phone">Telefone da conta</label>
+              <input id="phone" placeholder="+5511999999999">
+            </div>
+
+            <div class="btns">
+              <button class="primary" id="btnSendCode">Enviar código</button>
+              <button id="btnUseSession">Usar sessão salva</button>
+            </div>
+          </section>
+
+          <section id="screenCode" class="hidden">
+            <div class="row">
+              <label for="code">Código recebido</label>
+              <input id="code" inputmode="numeric">
+            </div>
+            <div class="btns">
+              <button class="primary" id="btnConfirmCode">Confirmar código</button>
+              <button id="btnResendCode">Reenviar código</button>
+              <button id="btnBackToCreds">Voltar</button>
+            </div>
+          </section>
+
+          <section id="screenPassword" class="hidden">
+            <div class="row">
+              <label for="password">Senha 2FA</label>
+              <input id="password" type="password">
+            </div>
+            <div class="btns">
+              <button class="primary" id="btnConfirmPassword">Confirmar senha</button>
+            </div>
+          </section>
+
+          <section id="screenActions" class="hidden">
+            <div class="cols-3">
+              <div class="row">
+                <label for="limitMessages">Qtd. mensagens</label>
+                <input id="limitMessages" value="200" inputmode="numeric">
+              </div>
+              <div class="row">
+                <label for="limitMembers">Limite membros</label>
+                <input id="limitMembers" value="0" inputmode="numeric">
+              </div>
+              <div class="row">
+                <label for="mediaMode">Mídia</label>
+                <select id="mediaMode">
+                  <option value="none">não baixar</option>
+                  <option value="links">apenas links</option>
+                  <option value="download">baixar</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row">
+              <label for="customOutput">Observações / flags de saída</label>
+              <textarea id="customOutput" placeholder="Ex.: gerar HTML + CSV + JSON, miniatura no campo Download, ocultar coluna URLs de mídia..."></textarea>
+            </div>
+
+            <div class="btns">
+              <button class="primary" id="btnScrapeN">Raspar N mensagens via API</button>
+              <button id="btnScrapeAll">Raspar todo conteúdo via API</button>
+              <button id="btnMembers">Baixar membros via API</button>
+              <button id="btnExportSession">Exportar sessão</button>
+              <button class="danger" id="btnClearSession">Limpar sessão</button>
+            </div>
+          </section>
+
+          <div class="small" style="margin-top:14px;">
+            O app procura automaticamente o cliente de navegador local em <b>telegram-client.bundle.js</b>.
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head">Log e estrutura</div>
+        <div class="card-body">
+          <div style="margin-bottom:12px;">
+            <span class="pill">login em etapas</span>
+            <span class="pill">sessão persistida</span>
+            <span class="pill">coleta por API</span>
+            <span class="pill">export HTML/CSV/JSON</span>
+            <span class="pill">sem URL manual de bundle</span>
+          </div>
+          <div id="log" class="log"></div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script src="./telegram-client.bundle.js"></script>
+  <script>
+    (() => {
+      const LS_KEY = 'telegram_app_loader_v2_state';
+      const state = { client:null, api:null, sessionString:'', phoneCodeHash:'', context:null };
+      const el = (id) => document.getElementById(id);
+
+      function log(msg){
+        const box = el('log');
+        const ts = new Date().toISOString();
+        box.textContent += `[${ts}] ${msg}\n`;
+        box.scrollTop = box.scrollHeight;
+      }
+
+      function setStatus(msg, kind='info'){
+        const box = el('statusBox');
+        box.className = 'status';
+        if(kind === 'ok') box.classList.add('ok');
+        if(kind === 'error') box.classList.add('error');
+        box.innerHTML = msg;
+        log(msg.replace(/<[^>]+>/g, ''));
+      }
+
+      function showScreen(name){
+        ['screenCreds','screenCode','screenPassword','screenActions'].forEach(id => {
+          el(id).classList.toggle('hidden', id !== name);
+        });
+      }
+
+      function saveState(){
+        localStorage.setItem(LS_KEY, JSON.stringify({
+          apiId: el('apiId').value || '',
+          apiHash: el('apiHash').value || '',
+          phone: el('phone').value || '',
+          sessionString: state.sessionString || ''
+        }));
+      }
+
+      function loadState(){
+        try{
+          const raw = JSON.parse(localStorage.getItem(LS_KEY) || '{}');
+          el('apiId').value = raw.apiId || '';
+          el('apiHash').value = raw.apiHash || '';
+          el('phone').value = raw.phone || '';
+          state.sessionString = raw.sessionString || '';
+        }catch(e){
+          log('Falha ao ler estado salvo: ' + e.message);
+        }
+      }
+
+      function parseContext(){
+        const params = new URLSearchParams(location.search);
+        const ctx = {
+          title: params.get('title') || '',
+          peer: params.get('peer') || '',
+          kind: params.get('kind') || '',
+          source: params.get('source') || ''
+        };
+        state.context = ctx;
+        el('ctxTitle').textContent = ctx.title || '-';
+        el('ctxPeer').textContent = ctx.peer || '-';
+        el('ctxKind').textContent = ctx.kind || '-';
+        el('ctxSource').textContent = ctx.source || '-';
+      }
+
+      function ensureBundleObjects(){
+        if (!(window.TelegramClient && window.StringSession && window.Api)) {
+          if (window.__TG_BUNDLE_STUB__) {
+            throw new Error('O projeto ainda está usando o bundle stub. Troque o stub por um bundle browser compatível para ativar a API real.');
+          }
+          throw new Error('telegram-client.bundle.js não expôs TelegramClient, StringSession e Api.');
+        }
+      }
+
+      async function ensureClient(){
+        ensureBundleObjects();
+        const apiId = Number(el('apiId').value || 0);
+        const apiHash = el('apiHash').value.trim();
+        if(!apiId) throw new Error('App api_id inválido.');
+        if(!apiHash) throw new Error('App api_hash ausente.');
+        const sess = new window.StringSession(state.sessionString || '');
+        state.client = new window.TelegramClient(sess, apiId, apiHash, { connectionRetries: 5 });
+        state.api = window.Api;
+        await state.client.connect();
+        saveState();
+      }
+
+      async function sendCode(){
+        try{
+          const phone = el('phone').value.trim();
+          if(!phone) throw new Error('Telefone ausente.');
+          await ensureClient();
+
+          setStatus('Solicitando envio do código...', 'info');
+
+          const sent = await state.client.invoke(new state.api.auth.SendCode({
+            phoneNumber: phone,
+            apiId: Number(el('apiId').value || 0),
+            apiHash: el('apiHash').value.trim(),
+            settings: new state.api.CodeSettings({
+              allowFlashcall: false,
+              currentNumber: false,
+              allowAppHash: false,
+              allowMissedCall: false,
+              allowFirebase: false,
+              unknownNumber: false,
+              logoutTokens: []
+            })
+          }));
+
+          state.phoneCodeHash = sent.phoneCodeHash || '';
+
+          if(sent.className === 'auth.SentCodeSuccess'){
+            state.sessionString = state.client.session.save();
+            saveState();
+            showScreen('screenActions');
+            setStatus('Sessão autorizada sem etapa manual adicional.', 'ok');
+            return;
+          }
+
+          if(!state.phoneCodeHash){
+            throw new Error('O Telegram não retornou phone_code_hash utilizável.');
+          }
+
+          showScreen('screenCode');
+          setStatus('Código solicitado. Agora informe o código recebido.', 'ok');
+        }catch(err){
+          setStatus('Erro ao enviar código: ' + err.message, 'error');
+        }
+      }
+
+      async function confirmCode(){
+        try{
+          const phone = el('phone').value.trim();
+          const code = el('code').value.trim();
+          if(!code) throw new Error('Informe o código recebido.');
+          await state.client.invoke(new state.api.auth.SignIn({
+            phoneNumber: phone,
+            phoneCodeHash: state.phoneCodeHash,
+            phoneCode: code
+          }));
+          state.sessionString = state.client.session.save();
+          saveState();
+          showScreen('screenActions');
+          setStatus('Autenticação concluída com sucesso.', 'ok');
+        }catch(err){
+          const msg = String(err.message || err);
+          if(/SESSION_PASSWORD_NEEDED|PHONE_PASSWORD_PROTECTED/i.test(msg)){
+            showScreen('screenPassword');
+            setStatus('A conta exige senha 2FA. Informe a senha.', 'info');
+            return;
+          }
+          setStatus('Erro ao confirmar código: ' + msg, 'error');
+        }
+      }
+
+      async function confirmPassword(){
+        try{
+          const phone = el('phone').value.trim();
+          const code = el('code').value.trim();
+          const password = el('password').value;
+          if(!password) throw new Error('Informe a senha 2FA.');
+          await state.client.start({
+            phoneNumber: async () => phone,
+            phoneCode: async () => code,
+            password: async () => password,
+            onError: (e) => { throw e; }
+          });
+          state.sessionString = state.client.session.save();
+          saveState();
+          showScreen('screenActions');
+          setStatus('Senha validada e autenticação concluída.', 'ok');
+        }catch(err){
+          setStatus('Erro ao validar senha 2FA: ' + err.message, 'error');
+        }
+      }
+
+      async function reuseSession(){
+        try{
+          if(!state.sessionString) throw new Error('Não há sessão salva.');
+          await ensureClient();
+          showScreen('screenActions');
+          setStatus('Sessão salva reutilizada com sucesso.', 'ok');
+        }catch(err){
+          setStatus('Erro ao reutilizar sessão: ' + err.message, 'error');
+        }
+      }
+
+      async function resendCode(){
+        try{
+          const phone = el('phone').value.trim();
+          if(!state.phoneCodeHash) throw new Error('Envie o código primeiro.');
+          const resent = await state.client.invoke(new state.api.auth.ResendCode({
+            phoneNumber: phone,
+            phoneCodeHash: state.phoneCodeHash
+          }));
+          state.phoneCodeHash = resent.phoneCodeHash || state.phoneCodeHash;
+          setStatus('Código reenviado.', 'ok');
+        }catch(err){
+          setStatus('Erro ao reenviar código: ' + err.message, 'error');
+        }
+      }
+
+      function notImplemented(action){
+        setStatus('Interface pronta. Rotina ainda não ligada: ' + action + '.', 'info');
+      }
+
+      function exportSession(){
+        if(!state.sessionString){
+          setStatus('Não há sessão para exportar.', 'error');
+          return;
+        }
+        const blob = new Blob([state.sessionString], {type:'text/plain;charset=utf-8'});
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'telegram_session.txt';
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => {
+          URL.revokeObjectURL(a.href);
+          a.remove();
+        }, 1500);
+        setStatus('Sessão exportada.', 'ok');
+      }
+
+      function clearSession(){
+        state.sessionString = '';
+        localStorage.removeItem(LS_KEY);
+        setStatus('Sessão removida.', 'ok');
+      }
+
+      el('btnSendCode').addEventListener('click', sendCode);
+      el('btnUseSession').addEventListener('click', reuseSession);
+      el('btnConfirmCode').addEventListener('click', confirmCode);
+      el('btnResendCode').addEventListener('click', resendCode);
+      el('btnBackToCreds').addEventListener('click', () => showScreen('screenCreds'));
+      el('btnConfirmPassword').addEventListener('click', confirmPassword);
+      el('btnScrapeN').addEventListener('click', () => notImplemented('raspagem de N mensagens via API'));
+      el('btnScrapeAll').addEventListener('click', () => notImplemented('raspagem total via API'));
+      el('btnMembers').addEventListener('click', () => notImplemented('exportação de membros via API'));
+      el('btnExportSession').addEventListener('click', exportSession);
+      el('btnClearSession').addEventListener('click', clearSession);
+
+      parseContext();
+      loadState();
+      log('App carregado.');
+      if (window.__TG_BUNDLE_STUB__) {
+        log('Bundle local atual é um stub. O próximo passo é substituir telegram-client.bundle.js por um bundle browser compatível.');
+        setStatus('O site abriu corretamente. Agora falta substituir o bundle stub por um bundle browser compatível do cliente Telegram.', 'info');
+      } else {
+        log('Bundle local carregado.');
+      }
+    })();
+  </script>
+</body>
+</html>
+
