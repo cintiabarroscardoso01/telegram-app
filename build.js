@@ -1,14 +1,11 @@
-import { build } from 'esbuild';
+const esbuild = require('esbuild');
 
-build({
+esbuild.build({
   entryPoints: ['node_modules/telegram/index.js'],
   bundle: true,
   platform: 'browser',
   outfile: 'dist/telegram.js',
   define: {
     'process.env.NODE_ENV': '"production"'
-  },
-  loader: {
-    '.js': 'jsx'
   }
 }).catch(() => process.exit(1));
