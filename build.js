@@ -7,5 +7,6 @@ esbuild.build({
   outfile: 'dist/telegram.js',
   define: {
     'process.env.NODE_ENV': '"production"'
-  }
+  },
+  external: ['fs', 'net', 'crypto', 'tls']
 }).catch(() => process.exit(1));
